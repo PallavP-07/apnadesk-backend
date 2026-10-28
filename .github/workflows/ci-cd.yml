@@ -1,0 +1,140 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+      - name: Build application
+        run: npm run build
+
+      - name: Build container image
+        run: docker build --tag appointment-saas-api:ci .
+
+  deploy:
+    name: Deploy to Google Cloud Run
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+      AR_REPOSITORY: ${{ vars.GCP_ARTIFACT_REGISTRY_REPOSITORY }}
+      CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
+      CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT: ${{ vars.CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT }}
+      CLOUD_SQL_INSTANCE: ${{ vars.CLOUD_SQL_INSTANCE }}
+      CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Validate deployment configuration
+        run: |
+          if [[ -z "$GCP_PROJECT_ID" || -z "$GCP_REGION" || -z "$AR_REPOSITORY" || \
+                -z "$CLOUD_RUN_SERVICE" || -z "$CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT" || \
+                -z "$CLOUD_SQL_INSTANCE" || -z "$CORS_ORIGINS" ]]; then
+            echo "Configure all required Cloud Run deployment variables in the production environment." >&2
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify database secrets
+        run: |
+          gcloud secrets describe DATABASE_URL \
+            --project "$GCP_PROJECT_ID" \
+            --quiet
+          gcloud secrets describe DIRECT_DATABASE_URL \
+            --project "$GCP_PROJECT_ID" \
+            --quiet
+
+      - name: Configure Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Build and publish image
+        id: image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${AR_REPOSITORY}/${CLOUD_RUN_SERVICE}:${IMAGE_TAG}"
+          docker build --tag "$IMAGE" .
+          docker push "$IMAGE"
+          echo "name=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Apply database migrations
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: |
+          gcloud run jobs deploy "${CLOUD_RUN_SERVICE}-migrate" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --image "$IMAGE" \
+            --command npm \
+            --args run,db:deploy \
+            --set-secrets DATABASE_URL=DATABASE_URL:latest,DIRECT_URL=DIRECT_DATABASE_URL:latest \
+            --set-cloudsql-instances "$CLOUD_SQL_INSTANCE" \
+            --service-account "$CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT" \
+            --max-retries 0 \
+            --task-timeout 10m \
+            --quiet
+          gcloud run jobs execute "${CLOUD_RUN_SERVICE}-migrate" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --wait
+
+      - name: Deploy service
+        env:
+          IMAGE: ${{ steps.image.outputs.name }}
+        run: |
+          gcloud run deploy "$CLOUD_RUN_SERVICE" \
+            --project "$GCP_PROJECT_ID" \
+            --region "$GCP_REGION" \
+            --image "$IMAGE" \
+            --port 8080 \
+            --set-env-vars "^@^NODE_ENV=production@CORS_ORIGINS=${CORS_ORIGINS}" \
+            --set-secrets DATABASE_URL=DATABASE_URL:latest,DIRECT_URL=DIRECT_DATABASE_URL:latest \
+            --set-cloudsql-instances "$CLOUD_SQL_INSTANCE" \
+            --service-account "$CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT" \
+            --no-allow-unauthenticated \
+            --quiet
