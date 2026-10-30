@@ -12,6 +12,8 @@ import { apiRouter } from "./routes/api.routes";
 export const app = express();
 
 app.disable("x-powered-by");
+// Cloud Run sits behind one proxy hop; the login rate limiter needs the real client IP.
+app.set("trust proxy", 1);
 app.use(helmet());
 app.use(
   pinoHttp({

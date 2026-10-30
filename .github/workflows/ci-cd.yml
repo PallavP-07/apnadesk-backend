@@ -88,6 +88,9 @@ jobs:
           gcloud secrets describe DIRECT_DATABASE_URL \
             --project "$GCP_PROJECT_ID" \
             --quiet
+          gcloud secrets describe JWT_ACCESS_SECRET \
+            --project "$GCP_PROJECT_ID" \
+            --quiet
 
       - name: Configure Artifact Registry
         run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
@@ -133,7 +136,7 @@ jobs:
             --image "$IMAGE" \
             --port 8080 \
             --set-env-vars "^@^NODE_ENV=production@CORS_ORIGINS=${CORS_ORIGINS}" \
-            --set-secrets DATABASE_URL=DATABASE_URL:latest,DIRECT_URL=DIRECT_DATABASE_URL:latest \
+            --set-secrets DATABASE_URL=DATABASE_URL:latest,DIRECT_URL=DIRECT_DATABASE_URL:latest,JWT_ACCESS_SECRET=JWT_ACCESS_SECRET:latest \
             --set-cloudsql-instances "$CLOUD_SQL_INSTANCE" \
             --service-account "$CLOUD_RUN_RUNTIME_SERVICE_ACCOUNT" \
             --no-allow-unauthenticated \

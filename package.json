@@ -16,22 +16,27 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "db:studio": "prisma studio"
+    "db:studio": "prisma studio",
+    "admin:create": "tsx src/scripts/create-super-admin.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.7.2",
     "helmet": "^8.1.0",
-    "prisma": "^6.19.0",
+    "jsonwebtoken": "^9.0.3",
     "pino": "^9.9.4",
     "pino-http": "^10.5.0",
+    "prisma": "^6.19.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.15.30",
     "tsx": "^4.20.6",
     "typescript": "^5.8.3"
