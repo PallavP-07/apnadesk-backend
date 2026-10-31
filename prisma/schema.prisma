@@ -29,11 +29,15 @@ model User {
   role         UserRole             @default(STAFF)
   isActive     Boolean              @default(true)
   lastLoginAt  DateTime?
+  ownerId      String?              @db.Uuid
+  owner        User?                @relation("OwnerStaff", fields: [ownerId], references: [id], onDelete: Cascade)
+  staff        User[]               @relation("OwnerStaff")
   memberships  OrganizationMember[]
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
 
   @@index([role])
+  @@index([ownerId])
   @@map("users")
 }
 

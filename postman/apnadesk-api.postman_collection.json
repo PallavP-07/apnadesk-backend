@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "ApnaDesk API",
-    "description": "Salon management API.\n\nSetup:\n1. Set the `superAdminPassword` collection variable (Variables tab, Current value).\n2. Run **Auth / Super Admin Login**. The access token is saved to `accessToken` automatically.\n3. Every other request uses `Bearer {{accessToken}}` from the collection-level auth.",
+    "description": "Salon management API.\n\nSetup:\n1. Set the `superAdminPassword` collection variable (Variables tab, Current value).\n2. Run **Auth / Super Admin Login**. The token is saved to `adminAccessToken` (and `accessToken`).\n3. Run **Admin - Owners / Create Owner**. This uses `ownerEmail` / `ownerPassword` and saves `ownerId`.\n4. Run **Auth / Owner or Staff Login (owner)**. The token is saved to `ownerAccessToken` (and `accessToken`).\n5. Run **Owner - Staff / Create Staff**. This uses `staffEmail` / `staffPassword` and saves `staffId`.\n6. Run **Auth / Owner or Staff Login (staff)** to log in as the staff member.\n\nThe **Admin - Owners** folder always uses `adminAccessToken` and the **Owner - Staff** folder always uses `ownerAccessToken`, so you can switch between logins without breaking them. Other requests use `accessToken` (the most recent login).\n\nIf an owner is set to inactive, the owner and all of their staff are blocked from logging in and their existing tokens stop working.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -35,7 +35,57 @@
       "key": "accessToken",
       "value": "",
       "type": "string",
-      "description": "Filled automatically by the login request."
+      "description": "Filled automatically by the most recent login request."
+    },
+    {
+      "key": "adminAccessToken",
+      "value": "",
+      "type": "string",
+      "description": "Filled automatically by Super Admin Login."
+    },
+    {
+      "key": "ownerAccessToken",
+      "value": "",
+      "type": "string",
+      "description": "Filled automatically when an OWNER logs in."
+    },
+    {
+      "key": "staffAccessToken",
+      "value": "",
+      "type": "string",
+      "description": "Filled automatically when a STAFF user logs in."
+    },
+    {
+      "key": "ownerEmail",
+      "value": "owner@salon.com",
+      "type": "string"
+    },
+    {
+      "key": "ownerPassword",
+      "value": "Owner@1234",
+      "type": "string"
+    },
+    {
+      "key": "staffEmail",
+      "value": "staff@salon.com",
+      "type": "string"
+    },
+    {
+      "key": "staffPassword",
+      "value": "Staff@1234",
+      "type": "string"
+    },
+    {
+      "key": "ownerId",
+      "value": "",
+      "type": "string",
+      "description": "Filled automatically by Create Owner."
+    },
+    {
+      "key": "staffId",
+      "value": "",
+      "type": "string",
+      "description": "Filled automatically by Create Staff."
     }
   ],
   "item": [
@@ -127,6 +177,7 @@
                   "const body = pm.response.json();",
                   "if (body.data && body.data.accessToken) {",
                   "    pm.collectionVariables.set(\"accessToken\", body.data.accessToken);",
+                  "    pm.collectionVariables.set(\"adminAccessToken\", body.data.accessToken);",
                   "}",
                   "",
                   "pm.test(\"User is a super admin\", () => {",
@@ -203,6 +254,107 @@
           ]
         },
         {
+          "name": "Owner or Staff Login (owner)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{ownerEmail}}\",\n  \"password\": \"{{ownerPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Logs in an OWNER or STAFF user. Fails with OWNER_ACCOUNT_DISABLED (403) when a staff member's owner is inactive, and ACCOUNT_DISABLED (403) when the user is inactive. Rate limited to 10 attempts per 15 minutes per IP."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body.data && body.data.accessToken) {",
+                  "    pm.collectionVariables.set(\"accessToken\", body.data.accessToken);",
+                  "    if (body.data.user.role === \"OWNER\") pm.collectionVariables.set(\"ownerAccessToken\", body.data.accessToken);",
+                  "    if (body.data.user.role === \"STAFF\") pm.collectionVariables.set(\"staffAccessToken\", body.data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Owner account disabled",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"email\": \"staff@salon.com\",\n  \"password\": \"********\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/auth/login",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["auth", "login"]
+                }
+              },
+              "status": "Forbidden",
+              "code": 403,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json; charset=utf-8" }],
+              "body": "{\n  \"error\": {\n    \"code\": \"OWNER_ACCOUNT_DISABLED\",\n    \"message\": \"Your salon's account has been disabled\",\n    \"requestId\": 1\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Owner or Staff Login (staff)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{staffEmail}}\",\n  \"password\": \"{{staffPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Same endpoint as the owner login, using the staff credentials."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body.data && body.data.accessToken) {",
+                  "    pm.collectionVariables.set(\"accessToken\", body.data.accessToken);",
+                  "    if (body.data.user.role === \"OWNER\") pm.collectionVariables.set(\"ownerAccessToken\", body.data.accessToken);",
+                  "    if (body.data.user.role === \"STAFF\") pm.collectionVariables.set(\"staffAccessToken\", body.data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Current User (me)",
           "request": {
             "method": "GET",
@@ -240,6 +392,446 @@
               "_postman_previewlanguage": "json",
               "header": [{ "key": "Content-Type", "value": "application/json; charset=utf-8" }],
               "body": "{\n  \"error\": {\n    \"code\": \"MISSING_TOKEN\",\n    \"message\": \"Authentication is required\",\n    \"requestId\": 1\n  }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Admin - Owners",
+      "description": "SUPER_ADMIN only. Manages salon owners. Uses `adminAccessToken`.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{adminAccessToken}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "Create Owner",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Salon Owner\",\n  \"email\": \"{{ownerEmail}}\",\n  \"phone\": \"9876543210\",\n  \"password\": \"{{ownerPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/owners",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "owners"]
+            },
+            "description": "Creates a salon OWNER. `phone` is optional. Password must be 6-128 characters. Duplicate email or phone returns 409 RESOURCE_CONFLICT."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set(\"ownerId\", body.data.id);",
+                  "}",
+                  "",
+                  "pm.test(\"User is an owner\", () => {",
+                  "    pm.expect(body.data.role).to.eql(\"OWNER\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Salon Owner\",\n  \"email\": \"owner@salon.com\",\n  \"phone\": \"9876543210\",\n  \"password\": \"********\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/owners",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "owners"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json; charset=utf-8" }],
+              "body": "{\n  \"data\": {\n    \"id\": \"7b0f4c4e-2a5e-4a8e-9a43-1f0b6f6f2c11\",\n    \"email\": \"owner@salon.com\",\n    \"name\": \"Salon Owner\",\n    \"phone\": \"9876543210\",\n    \"role\": \"OWNER\",\n    \"isActive\": true,\n    \"ownerId\": null,\n    \"lastLoginAt\": null,\n    \"createdAt\": \"2026-10-31T10:00:00.000Z\"\n  }\n}"
+            },
+            {
+              "name": "Duplicate email",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Salon Owner\",\n  \"email\": \"owner@salon.com\",\n  \"password\": \"********\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/admin/owners",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["admin", "owners"]
+                }
+              },
+              "status": "Conflict",
+              "code": 409,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json; charset=utf-8" }],
+              "body": "{\n  \"error\": {\n    \"code\": \"RESOURCE_CONFLICT\",\n    \"message\": \"A resource with these details already exists\",\n    \"requestId\": 1\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Owners",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/owners",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "owners"]
+            },
+            "description": "Lists all owners, newest first, with a `_count.staff` field."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Owner (with staff)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/admin/owners/{{ownerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "owners", "{{ownerId}}"]
+            },
+            "description": "Returns one owner along with their staff list. Returns 404 if the ID is not an owner."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Owner",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Salon Owner\",\n  \"phone\": \"9876500000\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/owners/{{ownerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "owners", "{{ownerId}}"]
+            },
+            "description": "Partial update. Any of `name`, `email`, `phone` (send `null` to clear), `password`. At least one field is required. Status is changed with the separate status endpoint."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deactivate Owner",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/owners/{{ownerId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "owners", "{{ownerId}}", "status"]
+            },
+            "description": "Sets the owner inactive. The owner and all of their staff can no longer log in, and their existing tokens stop working."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Owner is inactive\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data.isActive).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Activate Owner",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/owners/{{ownerId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "owners", "{{ownerId}}", "status"]
+            },
+            "description": "Sets the owner active again. Staff who were active before regain access; staff the owner deactivated stay inactive."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Owner is active\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data.isActive).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Owner - Staff",
+      "description": "OWNER only. An owner can only see and change their own staff. Uses `ownerAccessToken`.",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{ "key": "token", "value": "{{ownerAccessToken}}", "type": "string" }]
+      },
+      "item": [
+        {
+          "name": "Create Staff",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Staff Member\",\n  \"email\": \"{{staffEmail}}\",\n  \"phone\": \"9123456780\",\n  \"password\": \"{{staffPassword}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/staff",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff"]
+            },
+            "description": "Creates a STAFF user linked to the logged-in owner. `phone` is optional. Password must be 6-128 characters."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body.data && body.data.id) {",
+                  "    pm.collectionVariables.set(\"staffId\", body.data.id);",
+                  "}",
+                  "",
+                  "pm.test(\"User is staff\", () => {",
+                  "    pm.expect(body.data.role).to.eql(\"STAFF\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [{ "key": "Content-Type", "value": "application/json" }],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Staff Member\",\n  \"email\": \"staff@salon.com\",\n  \"phone\": \"9123456780\",\n  \"password\": \"********\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/staff",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["staff"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json; charset=utf-8" }],
+              "body": "{\n  \"data\": {\n    \"id\": \"c2a1e7d0-5b8f-4f0a-8d7e-3e6b9a1d4f22\",\n    \"email\": \"staff@salon.com\",\n    \"name\": \"Staff Member\",\n    \"phone\": \"9123456780\",\n    \"role\": \"STAFF\",\n    \"isActive\": true,\n    \"ownerId\": \"7b0f4c4e-2a5e-4a8e-9a43-1f0b6f6f2c11\",\n    \"lastLoginAt\": null,\n    \"createdAt\": \"2026-10-31T10:05:00.000Z\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "List Staff",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/staff",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff"]
+            },
+            "description": "Lists the logged-in owner's staff, newest first."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Staff",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/staff/{{staffId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff", "{{staffId}}"]
+            },
+            "description": "Returns one staff member. Returns 404 if the staff member belongs to another owner."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Staff",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Staff Member\",\n  \"phone\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/staff/{{staffId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff", "{{staffId}}"]
+            },
+            "description": "Partial update. Any of `name`, `email`, `phone` (send `null` to clear), `password`. At least one field is required."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deactivate Staff",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/staff/{{staffId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff", "{{staffId}}", "status"]
+            },
+            "description": "Sets the staff member inactive. They can no longer log in and their existing token stops working."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Staff is inactive\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data.isActive).to.eql(false);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Activate Staff",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/staff/{{staffId}}/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["staff", "{{staffId}}", "status"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Staff is active\", () => {",
+                  "    pm.response.to.have.status(200);",
+                  "    pm.expect(pm.response.json().data.isActive).to.eql(true);",
+                  "});"
+                ]
+              }
             }
           ]
         }

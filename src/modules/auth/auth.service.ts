@@ -14,6 +14,7 @@ export const publicUserSelect = {
   phone: true,
   role: true,
   isActive: true,
+  ownerId: true,
   lastLoginAt: true,
   createdAt: true,
 } satisfies Prisma.UserSelect;
@@ -34,8 +35,11 @@ function invalidCredentials(): ApiError {
   });
 }
 
-export async function loginSuperAdmin({ email, password }: LoginInput) {
-  const user = await prisma.user.findUnique({ where: { email } });
+async function loginWithRoles({ email, password }: LoginInput, allowedRoles: UserRole[]) {
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { owner: { select: { isActive: true } } },
+  });
 
   if (!user?.passwordHash) {
     await verifyPassword(password, await getDummyPasswordHash());
@@ -44,7 +48,7 @@ export async function loginSuperAdmin({ email, password }: LoginInput) {
 
   const passwordMatches = await verifyPassword(password, user.passwordHash);
 
-  if (!passwordMatches || user.role !== UserRole.SUPER_ADMIN) {
+  if (!passwordMatches || !allowedRoles.includes(user.role)) {
     throw invalidCredentials();
   }
 
@@ -53,6 +57,14 @@ export async function loginSuperAdmin({ email, password }: LoginInput) {
       status: HTTP_STATUS.FORBIDDEN,
       code: "ACCOUNT_DISABLED",
       message: "This account has been disabled",
+    });
+  }
+
+  if (user.owner && !user.owner.isActive) {
+    throw new ApiError({
+      status: HTTP_STATUS.FORBIDDEN,
+      code: "OWNER_ACCOUNT_DISABLED",
+      message: "Your salon's account has been disabled",
     });
   }
 
@@ -68,6 +80,14 @@ export async function loginSuperAdmin({ email, password }: LoginInput) {
     expiresIn: env.JWT_ACCESS_EXPIRES_IN,
     user: updatedUser,
   };
+}
+
+export function loginSuperAdmin(input: LoginInput) {
+  return loginWithRoles(input, [UserRole.SUPER_ADMIN]);
+}
+
+export function loginUser(input: LoginInput) {
+  return loginWithRoles(input, [UserRole.OWNER, UserRole.STAFF]);
 }
 
 export function getCurrentUser(userId: string) {

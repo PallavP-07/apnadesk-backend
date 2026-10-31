@@ -5,7 +5,7 @@ import { asyncHandler } from "../../lib/async-handler";
 import { HTTP_STATUS } from "../../lib/http-status";
 import { authenticate } from "../../middleware/authenticate";
 import { validateRequest } from "../../middleware/validate-request";
-import { adminLogin, getMe } from "./auth.controller";
+import { adminLogin, getMe, login } from "./auth.controller";
 import { loginSchema } from "./auth.schema";
 
 const loginRateLimiter = rateLimit({
@@ -32,4 +32,5 @@ authRouter.post(
   validateRequest(loginSchema),
   asyncHandler(adminLogin),
 );
+authRouter.post("/login", loginRateLimiter, validateRequest(loginSchema), asyncHandler(login));
 authRouter.get("/me", authenticate, asyncHandler(getMe));

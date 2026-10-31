@@ -28,10 +28,10 @@ export const authenticate = asyncHandler(async (request, _response, next) => {
 
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { id: true, role: true, isActive: true },
+    select: { id: true, role: true, isActive: true, owner: { select: { isActive: true } } },
   });
 
-  if (!user || !user.isActive) {
+  if (!user || !user.isActive || user.owner?.isActive === false) {
     throw unauthorized("INVALID_TOKEN", "Access token is invalid");
   }
 
