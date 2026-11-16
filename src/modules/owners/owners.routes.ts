@@ -4,9 +4,10 @@ import { asyncHandler } from "../../lib/async-handler";
 import { authenticate } from "../../middleware/authenticate";
 import { authorize } from "../../middleware/authorize";
 import { validateRequest } from "../../middleware/validate-request";
-import { create, getById, list, update, updateStatus } from "./owners.controller";
+import { salonSchema } from "../salons/salons.schema";
+import { create, getById, list, setSalon, update, updateStatus } from "./owners.controller";
 import {
-  createAccountSchema,
+  createOwnerSchema,
   updateAccountSchema,
   updateStatusSchema,
   userIdParamsSchema,
@@ -16,7 +17,7 @@ export const ownersRouter = Router();
 
 ownersRouter.use(authenticate, authorize(UserRole.SUPER_ADMIN));
 
-ownersRouter.post("/", validateRequest(createAccountSchema), asyncHandler(create));
+ownersRouter.post("/", validateRequest(createOwnerSchema), asyncHandler(create));
 ownersRouter.get("/", asyncHandler(list));
 ownersRouter.get("/:id", validateRequest(userIdParamsSchema, "params"), asyncHandler(getById));
 ownersRouter.patch(
@@ -30,4 +31,10 @@ ownersRouter.patch(
   validateRequest(userIdParamsSchema, "params"),
   validateRequest(updateStatusSchema),
   asyncHandler(updateStatus),
+);
+ownersRouter.put(
+  "/:id/salon",
+  validateRequest(userIdParamsSchema, "params"),
+  validateRequest(salonSchema),
+  asyncHandler(setSalon),
 );

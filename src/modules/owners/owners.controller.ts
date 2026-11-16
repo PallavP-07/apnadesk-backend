@@ -1,8 +1,10 @@
 import type { Request, Response } from "express";
 import { sendSuccess } from "../../lib/api-response";
 import { HTTP_STATUS } from "../../lib/http-status";
+import type { SalonInput } from "../salons/salons.schema";
+import { setOwnerSalon } from "../salons/salons.service";
 import type {
-  CreateAccountInput,
+  CreateOwnerInput,
   UpdateAccountInput,
   UpdateStatusInput,
   UserIdParams,
@@ -10,7 +12,7 @@ import type {
 import { createOwner, getOwner, listOwners, setOwnerStatus, updateOwner } from "./owners.service";
 
 export async function create(request: Request, response: Response): Promise<void> {
-  const owner = await createOwner(request.body as CreateAccountInput);
+  const owner = await createOwner(request.body as CreateOwnerInput);
   sendSuccess(response, owner, HTTP_STATUS.CREATED);
 }
 
@@ -32,4 +34,9 @@ export async function updateStatus(request: Request, response: Response): Promis
   const { id } = request.validated!.params as UserIdParams;
   const { isActive } = request.body as UpdateStatusInput;
   sendSuccess(response, await setOwnerStatus(id, isActive));
+}
+
+export async function setSalon(request: Request, response: Response): Promise<void> {
+  const { id } = request.validated!.params as UserIdParams;
+  sendSuccess(response, await setOwnerSalon(id, request.body as SalonInput));
 }

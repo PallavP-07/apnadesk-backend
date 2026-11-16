@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "ApnaDesk API",
-    "description": "Salon management API.\n\nSetup:\n1. Set the `superAdminPassword` collection variable (Variables tab, Current value).\n2. Run **Auth / Super Admin Login**. The token is saved to `adminAccessToken` (and `accessToken`).\n3. Run **Admin - Owners / Create Owner**. This uses `ownerEmail` / `ownerPassword` and saves `ownerId`.\n4. Run **Auth / Owner or Staff Login (owner)**. The token is saved to `ownerAccessToken` (and `accessToken`).\n5. Run **Owner - Staff / Create Staff**. This uses `staffEmail` / `staffPassword` and saves `staffId`.\n6. Run **Auth / Owner or Staff Login (staff)** to log in as the staff member.\n\nThe **Admin - Owners** folder always uses `adminAccessToken` and the **Owner - Staff** folder always uses `ownerAccessToken`, so you can switch between logins without breaking them. Other requests use `accessToken` (the most recent login).\n\nIf an owner is set to inactive, the owner and all of their staff are blocked from logging in and their existing tokens stop working.",
+    "description": "Salon management API.\n\nSetup:\n1. Set the `superAdminPassword` collection variable (Variables tab, Current value).\n2. Run **Auth / Super Admin Login**. The token is saved to `adminAccessToken` (and `accessToken`).\n3. Run **Admin - Owners / Create Owner**. This creates the owner and their salon, uses `ownerEmail` / `ownerPassword`, and saves `ownerId`.\n4. Run **Auth / Owner or Staff Login (owner)**. The token is saved to `ownerAccessToken` (and `accessToken`).\n5. Run **Owner - Staff / Create Staff**. This uses `staffEmail` / `staffPassword` and saves `staffId`.\n6. Run **Auth / Owner or Staff Login (staff)** to log in as the staff member.\n\nThe **Admin - Owners** folder always uses `adminAccessToken` and the **Owner - Staff** folder always uses `ownerAccessToken`, so you can switch between logins without breaking them. Other requests use `accessToken` (the most recent login).\n\nIf an owner is set to inactive, the owner and all of their staff are blocked from logging in and their existing tokens stop working.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -412,7 +412,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Salon Owner\",\n  \"email\": \"{{ownerEmail}}\",\n  \"phone\": \"9876543210\",\n  \"password\": \"{{ownerPassword}}\"\n}",
+              "raw": "{\n  \"name\": \"Salon Owner\",\n  \"email\": \"{{ownerEmail}}\",\n  \"phone\": \"9876543210\",\n  \"password\": \"{{ownerPassword}}\",\n  \"salon\": {\n    \"name\": \"Glow Beauty Salon\",\n    \"addressLine1\": \"Shop 12, MG Road\",\n    \"addressLine2\": \"Near City Mall\",\n    \"city\": \"Pune\",\n    \"state\": \"Maharashtra\",\n    \"pincode\": \"411001\",\n    \"phone\": \"9876501234\",\n    \"email\": \"contact@glowsalon.com\",\n    \"gstin\": \"27ABCDE1234F1Z5\",\n    \"latitude\": 18.5204,\n    \"longitude\": 73.8567\n  }\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -420,7 +420,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["admin", "owners"]
             },
-            "description": "Creates a salon OWNER. `phone` is optional. Password must be 6-128 characters. Duplicate email or phone returns 409 RESOURCE_CONFLICT."
+            "description": "Creates a salon OWNER together with their salon, in one step (both are saved or neither is).\n\nSalon fields: `name`, `addressLine1`, `city`, `state` (full Indian state or union territory name, e.g. \"Maharashtra\"), `pincode` (6 digits) are required. `addressLine2`, `phone`, `email`, `gstin` (15-character GST number), `latitude` + `longitude` (send both or neither) are optional.\n\nOwner `phone` is optional and must be a 10-digit Indian mobile number starting with 6-9 (no +91 or spaces). Password must be 6-128 characters and cannot be only spaces. Duplicate email or phone returns 409 RESOURCE_CONFLICT."
           },
           "event": [
             {
@@ -450,7 +450,7 @@
                 "header": [{ "key": "Content-Type", "value": "application/json" }],
                 "body": {
                   "mode": "raw",
-                  "raw": "{\n  \"name\": \"Salon Owner\",\n  \"email\": \"owner@salon.com\",\n  \"phone\": \"9876543210\",\n  \"password\": \"********\"\n}"
+                  "raw": "{\n  \"name\": \"Salon Owner\",\n  \"email\": \"owner@salon.com\",\n  \"phone\": \"9876543210\",\n  \"password\": \"********\",\n  \"salon\": {\n    \"name\": \"Glow Beauty Salon\",\n    \"addressLine1\": \"Shop 12, MG Road\",\n    \"addressLine2\": \"Near City Mall\",\n    \"city\": \"Pune\",\n    \"state\": \"Maharashtra\",\n    \"pincode\": \"411001\",\n    \"phone\": \"9876501234\",\n    \"email\": \"contact@glowsalon.com\",\n    \"gstin\": \"27ABCDE1234F1Z5\",\n    \"latitude\": 18.5204,\n    \"longitude\": 73.8567\n  }\n}"
                 },
                 "url": {
                   "raw": "{{baseUrl}}/admin/owners",
@@ -462,7 +462,7 @@
               "code": 201,
               "_postman_previewlanguage": "json",
               "header": [{ "key": "Content-Type", "value": "application/json; charset=utf-8" }],
-              "body": "{\n  \"data\": {\n    \"id\": \"7b0f4c4e-2a5e-4a8e-9a43-1f0b6f6f2c11\",\n    \"email\": \"owner@salon.com\",\n    \"name\": \"Salon Owner\",\n    \"phone\": \"9876543210\",\n    \"role\": \"OWNER\",\n    \"isActive\": true,\n    \"ownerId\": null,\n    \"lastLoginAt\": null,\n    \"createdAt\": \"2026-10-31T10:00:00.000Z\"\n  }\n}"
+              "body": "{\n  \"data\": {\n    \"id\": \"7b0f4c4e-2a5e-4a8e-9a43-1f0b6f6f2c11\",\n    \"email\": \"owner@salon.com\",\n    \"name\": \"Salon Owner\",\n    \"phone\": \"9876543210\",\n    \"role\": \"OWNER\",\n    \"isActive\": true,\n    \"ownerId\": null,\n    \"lastLoginAt\": null,\n    \"createdAt\": \"2026-10-31T10:00:00.000Z\",\n    \"salon\": {\n      \"id\": \"5d6e7f80-1a2b-4c3d-9e8f-0a1b2c3d4e5f\",\n      \"ownerId\": \"7b0f4c4e-2a5e-4a8e-9a43-1f0b6f6f2c11\",\n      \"name\": \"Glow Beauty Salon\",\n      \"addressLine1\": \"Shop 12, MG Road\",\n      \"addressLine2\": \"Near City Mall\",\n      \"city\": \"Pune\",\n      \"state\": \"Maharashtra\",\n      \"pincode\": \"411001\",\n      \"phone\": \"9876501234\",\n      \"email\": \"contact@glowsalon.com\",\n      \"gstin\": \"27ABCDE1234F1Z5\",\n      \"latitude\": 18.5204,\n      \"longitude\": 73.8567,\n      \"createdAt\": \"2026-10-31T10:00:00.000Z\",\n      \"updatedAt\": \"2026-10-31T10:00:00.000Z\"\n    }\n  }\n}"
             },
             {
               "name": "Duplicate email",
@@ -496,7 +496,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["admin", "owners"]
             },
-            "description": "Lists all owners, newest first, with a `_count.staff` field."
+            "description": "Lists all owners, newest first, with a short `salon` summary (name, city, state) and a `_count.staff` field."
           },
           "event": [
             {
@@ -519,7 +519,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["admin", "owners", "{{ownerId}}"]
             },
-            "description": "Returns one owner along with their staff list. Returns 404 if the ID is not an owner."
+            "description": "Returns one owner along with their full salon details and staff list. Returns 404 if the ID is not an owner."
           },
           "event": [
             {
@@ -548,7 +548,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["admin", "owners", "{{ownerId}}"]
             },
-            "description": "Partial update. Any of `name`, `email`, `phone` (send `null` to clear), `password`. At least one field is required. Status is changed with the separate status endpoint."
+            "description": "Partial update. Any of `name`, `email`, `phone` (10-digit Indian mobile number, or `null` to clear), `password` (6-128 characters, not only spaces). At least one field is required. Status is changed with the separate status endpoint."
           },
           "event": [
             {
@@ -625,6 +625,35 @@
               }
             }
           ]
+        },
+        {
+          "name": "Set Owner Salon",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Glow Beauty Salon\",\n  \"addressLine1\": \"Shop 12, MG Road\",\n  \"addressLine2\": \"Near City Mall\",\n  \"city\": \"Pune\",\n  \"state\": \"Maharashtra\",\n  \"pincode\": \"411001\",\n  \"phone\": \"9876501234\",\n  \"email\": \"contact@glowsalon.com\",\n  \"gstin\": \"27ABCDE1234F1Z5\",\n  \"latitude\": 18.5204,\n  \"longitude\": 73.8567\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/owners/{{ownerId}}/salon",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "owners", "{{ownerId}}", "salon"]
+            },
+            "description": "Creates the owner's salon if they don't have one yet, otherwise replaces all salon details. Send the full form: optional fields that are left out are cleared. Same field rules as Create Owner's `salon` block. Returns 404 if the ID is not an owner."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -651,7 +680,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["staff"]
             },
-            "description": "Creates a STAFF user linked to the logged-in owner. `phone` is optional. Password must be 6-128 characters."
+            "description": "Creates a STAFF user linked to the logged-in owner. `phone` is optional and must be a 10-digit Indian mobile number starting with 6-9 (no +91 or spaces). Password must be 6-128 characters and cannot be only spaces."
           },
           "event": [
             {
@@ -758,7 +787,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["staff", "{{staffId}}"]
             },
-            "description": "Partial update. Any of `name`, `email`, `phone` (send `null` to clear), `password`. At least one field is required."
+            "description": "Partial update. Any of `name`, `email`, `phone` (10-digit Indian mobile number, or `null` to clear), `password` (6-128 characters, not only spaces). At least one field is required."
           },
           "event": [
             {
@@ -830,6 +859,116 @@
                   "    pm.response.to.have.status(200);",
                   "    pm.expect(pm.response.json().data.isActive).to.eql(true);",
                   "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Salon",
+      "description": "The logged-in owner's salon. Owners can view and edit it; staff can view their owner's salon. Returns 404 SALON_NOT_FOUND if the salon has not been set up yet (the admin can set it with Admin - Owners / Set Owner Salon).",
+      "item": [
+        {
+          "name": "Get My Salon (owner)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{ownerAccessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/salon",
+              "host": ["{{baseUrl}}"],
+              "path": ["salon"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "response": [
+            {
+              "name": "Salon not set up",
+              "originalRequest": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/salon",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["salon"]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "json",
+              "header": [{ "key": "Content-Type", "value": "application/json; charset=utf-8" }],
+              "body": "{\n  \"error\": {\n    \"code\": \"SALON_NOT_FOUND\",\n    \"message\": \"Salon details have not been set up yet\",\n    \"requestId\": 1\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Get My Salon (staff)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{staffAccessToken}}", "type": "string" }]
+            },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/salon",
+              "host": ["{{baseUrl}}"],
+              "path": ["salon"]
+            },
+            "description": "Staff see the salon of the owner who added them. Staff cannot edit it."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update My Salon (owner)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{ "key": "token", "value": "{{ownerAccessToken}}", "type": "string" }]
+            },
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"addressLine1\": \"Shop 14, MG Road\",\n  \"gstin\": null\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/salon",
+              "host": ["{{baseUrl}}"],
+              "path": ["salon"]
+            },
+            "description": "Partial update: send only the fields to change. Optional fields (`addressLine2`, `phone`, `email`, `gstin`, `latitude`, `longitude`) can be cleared with `null`. Latitude and longitude must be sent together. OWNER only."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));"
                 ]
               }
             }
